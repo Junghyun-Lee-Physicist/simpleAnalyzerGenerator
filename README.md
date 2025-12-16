@@ -147,7 +147,7 @@ Bash
     ```Bash
     mv ../file_list.txt .
 
-    # Run on MC (Weight 0.5, Process ttbar)
+    # Run on MC (Process ttHHto4b)
     ./runAnalysis file_list.txt output_test_ttHHto4b.root 0.00000109763773 0 ttHHto4b
 
     # Run on Data (Weight 1.0, IsData 1)
@@ -268,7 +268,7 @@ make
 or for more detail version
 
 ```BASH
-# Run on MC (Weight 0.5, Process ttbar)
+# Run on MC (Process ttHHto4b)
 ./runAnalysis file_list.txt output_test_ttHHto4b.root 0.00000109763773 0 ttHHto4b
 
 # Run on Data (Weight 1.0, IsData 1)
