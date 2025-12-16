@@ -16,12 +16,27 @@ Run the python script. You must provide a sample file.
 ```bash
 # Basic Usage (Default class name: CMSAnalyzer, Tree: Events)
 python3 setup_framework.py -f /path/to/sample_file.root
+# --> This will create a folder named "CMSAnalyzer" and put all code inside it.
 
 # Custom Usage
 python3 setup_framework.py -f sample.root -t Events -c MyPhysicsAnalyzer
+# --> This will create a folder named "MyPhysicsAnalyzer" and put all code inside it.
 ```
 
 **Output:** The script will generate the following files in your current directory:
+
+Directory Structure Created:
+```
+.
+├── setup_framework.py
+├── get_file_list.py
+├── file_list.txt
+└── CMSAnalyzer/          <-- New Directory Created as user defined name
+    ├── CMSAnalyzer.h
+    ├── CMSAnalyzer.C
+    ├── main.cc
+    └── Makefile
+```
 
 - `CMSAnalyzer.h`: Header file defining the Tree structure.
     
@@ -34,11 +49,12 @@ python3 setup_framework.py -f sample.root -t Events -c MyPhysicsAnalyzer
 
 ### 2. Compile
 
-Simply run `make`.
+Simply run `make` in the Analyzer directory.
 
 Bash
 
 ```
+cd CMSAnalyzer
 make
 ```
 
@@ -68,7 +84,7 @@ Bash
     
     ```Bash
     # Use one of the files from the list as a template
-    python3 setup_framework.py -f root://cms-xrd-global.cern.ch//store/mc/.../tree_1.root
+    pyhon3 setup_framework.py -f "root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
     ```
     
 3. **Edit Code:** Open `CMSAnalyzer.C` and modify the `Loop()` function to add your physics logic.

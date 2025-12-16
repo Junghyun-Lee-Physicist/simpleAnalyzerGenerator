@@ -5,55 +5,61 @@ import argparse
 
 def main():
     """
-    CMS Analysis Framework Generator
+    CMS Analysis Framework Generator (Directory Supported)
     
-    This script automates the creation of a ROOT analysis workspace.
-    1. Opens a sample ROOT file.
-    2. Runs TTree::MakeClass to generate the Analyzer skeleton.
-    3. Generates a C++ main entry point (main.cc) to handle file lists.
-    4. Generates a Makefile for immediate compilation.
+    1. Creates a directory named after the Class.
+    2. Opens the sample ROOT file.
+    3. Generates Analyzer (MakeClass), main.cc, and Makefile inside that directory.
     """
 
     # --- 1. Argument Parsing ---
     parser = argparse.ArgumentParser(description="Generate a CMS ROOT Analysis Framework via MakeClass")
     parser.add_argument("-f", "--file", required=True, help="Path to a sample ROOT file (e.g., samples/ttHH.root)")
     parser.add_argument("-t", "--tree", default="Events", help="Name of the TTree in the file (default: Events)")
-    parser.add_argument("-c", "--class", dest="classname", default="CMSAnalyzer", help="Name of the Analyzer class to generate (default: CMSAnalyzer)")
+    parser.add_argument("-c", "--class", dest="classname", default="CMSAnalyzer", help="Name of the Analyzer class (creates a folder with this name)")
     
     args = parser.parse_args()
     
-    sample_file = args.file
+    # Get absolute path of the input file to avoid issues when changing directories
+    sample_file = os.path.abspath(args.file)
     tree_name = args.tree
     class_name = args.classname
+    output_dir = class_name  # Directory name is the same as class name
 
     print("-" * 60)
     print(f"[INFO] Initializing Framework Generation")
-    print(f"[INFO] Sample File : {sample_file}")
-    print(f"[INFO] Tree Name   : {tree_name}")
-    print(f"[INFO] Class Name  : {class_name}")
+    print(f"[INFO] Target Directory: ./{output_dir}")
+    print(f"[INFO] Sample File     : {sample_file}")
+    print(f"[INFO] Class Name      : {class_name}")
     print("-" * 60)
 
-    # --- 2. Check ROOT Availability ---
+    # --- 2. Create Directory ---
+    if os.path.exists(output_dir):
+        print(f"[WARNING] Directory '{output_dir}' already exists.")
+        # Optional: Ask for confirmation or just proceed
+    else:
+        try:
+            os.makedirs(output_dir)
+            print(f"[INFO] Created directory: {output_dir}")
+        except OSError as e:
+            print(f"[ERROR] Failed to create directory {output_dir}: {e}")
+            sys.exit(1)
+
+    # --- 3. Check ROOT Availability ---
     try:
         import ROOT
     except ImportError:
-        print("[ERROR] Could not import ROOT module. Please ensure ROOT is set up (source /cvmfs/...).")
+        print("[ERROR] Could not import ROOT module. Please check your environment.")
         sys.exit(1)
 
-    # --- 3. Run MakeClass via PyROOT ---
-    if not os.path.exists(sample_file):
-        print(f"[ERROR] Sample file not found: {sample_file}")
-        sys.exit(1)
-
+    # --- 4. Run MakeClass via PyROOT ---
     print(f"[INFO] Opening file to extract TTree structure...")
     
-    # Open file in read-only mode
     f = ROOT.TFile.Open(sample_file, "READ")
     if not f or f.IsZombie():
         print(f"[ERROR] Failed to open file: {sample_file}")
         sys.exit(1)
 
-    # Get the tree
     tree = f.Get(tree_name)
     if not tree:
         print(f"[ERROR] TTree '{tree_name}' not found in file.")
@@ -61,29 +67,30 @@ def main():
         sys.exit(1)
 
     print(f"[INFO] Found TTree '{tree_name}' with {tree.GetEntries()} entries.")
-    print(f"[INFO] Running MakeClass('{class_name}')...")
     
-    # Run MakeClass
-    # This generates {class_name}.h and {class_name}.C in the current directory
-    prev_dir = os.getcwd()
-    ROOT.gROOT.SetBatch(True) # Prevent graphical windows
-    tree.MakeClass(class_name)
-    f.Close()
+    # Change working directory to the output folder so files are generated there
+    original_cwd = os.getcwd()
+    os.chdir(output_dir)
+    print(f"[INFO] Changed working directory to: {os.getcwd()}")
 
-    if os.path.exists(f"{class_name}.C") and os.path.exists(f"{class_name}.h"):
-        print(f"[SUCCESS] Generated {class_name}.C and {class_name}.h")
-    else:
+    print(f"[INFO] Running MakeClass('{class_name}')...")
+    ROOT.gROOT.SetBatch(True)
+    tree.MakeClass(class_name)
+    f.Close() # Close file after generation
+
+    # Verify generation
+    if not (os.path.exists(f"{class_name}.C") and os.path.exists(f"{class_name}.h")):
         print("[ERROR] MakeClass failed to generate files.")
         sys.exit(1)
 
 
-    # --- 4. Generate main.cc ---
+    # --- 5. Generate main.cc ---
     main_filename = "main.cc"
     print(f"[INFO] Generating C++ entry point: {main_filename}...")
     
     main_code = f"""/**
  * @file {main_filename}
- * @brief Main driver for {class_name}. Reads a file list and executes the Loop.
+ * @brief Main driver for {class_name}.
  * Auto-generated by setup_framework.py
  */
 
@@ -97,7 +104,7 @@ def main():
 int main(int argc, char* argv[]) {{
     // Check command line arguments
     if (argc < 2) {{
-        std::cout << "Usage: " << argv[0] << " <file_list.txt> [output_filename]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " <file_list.txt>" << std::endl;
         return 1;
     }}
 
@@ -105,7 +112,6 @@ int main(int argc, char* argv[]) {{
     std::cout << "[Main] Processing file list: " << listFileName << std::endl;
 
     // Create TChain
-    // NOTE: Ensure this matches the Tree Name used during generation
     TChain *chain = new TChain("{tree_name}");
 
     // Read file list
@@ -115,7 +121,6 @@ int main(int argc, char* argv[]) {{
 
     if (infile.is_open()) {{
         while (std::getline(infile, line)) {{
-            // Skip empty lines or comments
             if (line.empty() || line[0] == '#') continue;
             chain->Add(line.c_str());
             nFiles++;
@@ -124,6 +129,10 @@ int main(int argc, char* argv[]) {{
     }} else {{
         std::cout << "[Error] Cannot open file list!" << std::endl;
         return 1;
+    }}
+
+    if (nFiles == 0) {{
+        std::cout << "[Warning] No files added to chain. Check your list." << std::endl;
     }}
 
     std::cout << "[Main] Total " << nFiles << " files added to TChain." << std::endl;
@@ -142,56 +151,51 @@ int main(int argc, char* argv[]) {{
         f_main.write(main_code)
 
 
-    # --- 5. Generate Makefile ---
+    # --- 6. Generate Makefile ---
     makefile_name = "Makefile"
     print(f"[INFO] Generating Makefile: {makefile_name}...")
 
     makefile_code = f"""# Auto-generated Makefile for {class_name}
 
-# Compiler and Flags
 CXX = g++
 CXXFLAGS = -O2 -Wall -fPIC $(shell root-config --cflags)
 LDFLAGS = $(shell root-config --libs)
 
-# Target Executable Name
 TARGET = runAnalysis
 
-# Source Files
-# We compile main.cc and the Analyzer source (.C)
 SRCS = {main_filename} {class_name}.C
 OBJS = $(SRCS:.cc=.o)
 OBJS := $(OBJS:.C=.o)
 
-# Default Target
 all: $(TARGET)
 
-# Link
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
-	@echo "-----------------------------------------"
-	@echo " Compilation Successful! Executable: ./$(TARGET)"
-	@echo "-----------------------------------------"
+	@echo "Build Complete! Executable: ./$(TARGET)"
 
-# Compile .cc files (main)
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Compile .C files (Analyzer)
 %.o: %.C
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Clean
 clean:
 	rm -f $(OBJS) $(TARGET)
 """
     with open(makefile_name, "w") as f_make:
         f_make.write(makefile_code)
 
+    # --- 7. Finalize ---
+    # Switch back to original directory
+    os.chdir(original_cwd)
+
     print("-" * 60)
-    print(f"[DONE] Framework generation complete.")
-    print(f"       1. Edit '{class_name}.C' to add your analysis logic (inside Loop).")
-    print(f"       2. Run 'make' to compile.")
-    print(f"       3. Run './runAnalysis <file_list.txt>' to execute.")
+    print(f"[DONE] Framework generated in directory: {output_dir}/")
+    print(f"       Follow these steps to run:")
+    print(f"       1. cd {output_dir}")
+    print(f"       2. (Modify {class_name}.C to add your logic)")
+    print(f"       3. make")
+    print(f"       4. ./runAnalysis ../file_list.txt") 
     print("-" * 60)
 
 if __name__ == "__main__":
