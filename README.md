@@ -1,6 +1,7 @@
 # CMS Analysis Framework Generator
 
 This tool (`setup_framework.py`) is a wrapper that automates the initialization of a ROOT-based analysis framework. It replaces the manual process of running `MakeClass`, writing a `main` function, and creating a `Makefile`. 
+
 And You can use more advanced version (`setup_framework_advanced.py`) to create more detail C++ framework and also has more arguments.
 
 ## Prerequisites
