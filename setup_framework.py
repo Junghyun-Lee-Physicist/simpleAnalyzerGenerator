@@ -2,18 +2,20 @@
 import sys
 import os
 import argparse
+import shutil
 
 def main():
     """
-    CMS Analysis Framework Generator
+    CMS Analysis Framework Generator (Structured Version)
     
-    1. Opens the sample ROOT file.
-    2. Creates a directory named after the Class.
-    3. Moves into that directory.
-    4. Generates:
-       - Analyzer skeleton (MakeClass)
-       - main.cc (Execution driver)
-       - Makefile (Compilation)
+    Output Structure:
+      TargetDir/
+       ├── Makefile
+       ├── include/
+       │    └── CMSAnalyzer.h
+       └── src/
+            ├── CMSAnalyzer.C
+            └── main.cc
     """
 
     # --- 1. Argument Parsing ---
@@ -30,8 +32,9 @@ def main():
     output_dir = class_name
 
     print("-" * 60)
-    print(f"[INFO] Initializing Framework Generation")
+    print(f"[INFO] Initializing Structured Framework Generation")
     print(f"[INFO] Target Directory: ./{output_dir}")
+    print(f"[INFO] Structure       : src/ (Source), include/ (Header)")
     print(f"[INFO] Sample File     : {sample_file}")
     print("-" * 60)
 
@@ -39,7 +42,7 @@ def main():
     try:
         import ROOT
     except ImportError:
-        print("[ERROR] Could not import ROOT module. Please check your environment.")
+        print("[ERROR] Could not import ROOT module.")
         sys.exit(1)
 
     # --- 3. Open File & Get Tree ---
@@ -59,41 +62,58 @@ def main():
 
     print(f"[INFO] Found TTree '{tree_name}' with {tree.GetEntries()} entries.")
 
-    # --- 4. Create Directory & Move ---
+    # --- 4. Prepare Directory Structure ---
+    # Create the main directory and sub-directories (src, include)
     if os.path.exists(output_dir):
         print(f"[WARNING] Directory '{output_dir}' already exists.")
     else:
         try:
             os.makedirs(output_dir)
-            print(f"[INFO] Created directory: {output_dir}")
+            os.makedirs(os.path.join(output_dir, "src"))
+            os.makedirs(os.path.join(output_dir, "include"))
+            print(f"[INFO] Created directory structure: src/, include/")
         except OSError as e:
-            print(f"[ERROR] Failed to create directory {output_dir}: {e}")
+            print(f"[ERROR] Failed to create directories: {e}")
             sys.exit(1)
 
+    # Save original path
     original_cwd = os.getcwd()
+    
+    # Move into the output directory to run MakeClass
     os.chdir(output_dir)
     print(f"[INFO] Changed working directory to: {os.getcwd()}")
 
-    # --- 5. Run MakeClass ---
+    # --- 5. Run MakeClass & Move Files ---
     print(f"[INFO] Running MakeClass('{class_name}')...")
+    
+    # MakeClass generates files in the CURRENT directory
     tree.MakeClass(class_name)
     f.Close() 
 
-    if not (os.path.exists(f"{class_name}.C") and os.path.exists(f"{class_name}.h")):
+    # Check and Move files
+    if os.path.exists(f"{class_name}.C") and os.path.exists(f"{class_name}.h"):
+        # Move .C -> src/
+        shutil.move(f"{class_name}.C", f"src/{class_name}.C")
+        # Move .h -> include/
+        shutil.move(f"{class_name}.h", f"include/{class_name}.h")
+        print(f"[INFO] Moved {class_name}.C -> src/")
+        print(f"[INFO] Moved {class_name}.h -> include/")
+    else:
         print("[ERROR] MakeClass failed to generate files.")
         sys.exit(1)
 
 
-    # --- 6. Generate main.cc ---
-    main_filename = "main.cc"
+    # --- 6. Generate src/main.cc ---
+    # We create main.cc directly inside src/
+    main_filename = "src/main.cc"
     print(f"[INFO] Generating C++ entry point: {main_filename}...")
     
     main_code = f"""/**
- * @file {main_filename}
+ * @file main.cc
  * @brief Main driver for {class_name}.
  */
 
-#include "{class_name}.h"
+#include "{class_name}.h" // Makefile will handle the include path
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -146,18 +166,23 @@ int main(int argc, char* argv[]) {{
 
 
     # --- 7. Generate Makefile ---
+    # The Makefile must now look into src/ for source files 
+    # and include/ for header files (-Iinclude)
     makefile_name = "Makefile"
     print(f"[INFO] Generating Makefile: {makefile_name}...")
 
     makefile_code = f"""# Auto-generated Makefile for {class_name}
 
 CXX = g++
-CXXFLAGS = -O2 -Wall -fPIC $(shell root-config --cflags)
+# [Important] Add -Iinclude so the compiler can find the header file
+INC = -Iinclude
+CXXFLAGS = -O2 -Wall -fPIC $(shell root-config --cflags) $(INC)
 LDFLAGS = $(shell root-config --libs)
 
 TARGET = runAnalysis
 
-SRCS = {main_filename} {class_name}.C
+# Source files are now in src/
+SRCS = src/main.cc src/{class_name}.C
 OBJS = $(SRCS:.cc=.o)
 OBJS := $(OBJS:.C=.o)
 
@@ -169,14 +194,16 @@ $(TARGET): $(OBJS)
 	@echo " Build Complete! Executable: ./$(TARGET)"
 	@echo "-----------------------------------------"
 
-%.o: %.cc
+# Rule for .cc files in src/
+src/%.o: src/%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-%.o: %.C
+# Rule for .C files in src/
+src/%.o: src/%.C
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f src/*.o $(TARGET)
 """
     with open(makefile_name, "w") as f_make:
         f_make.write(makefile_code)
@@ -186,7 +213,8 @@ clean:
 
     print("-" * 60)
     print(f"[DONE] Framework generated in directory: {output_dir}/")
-    print(f"[DONE] Please check README.md in the repository for coding examples.")
+    print(f"[NOTE] Source files are in '{output_dir}/src/'")
+    print(f"[NOTE] Header files are in '{output_dir}/include/'")
     print("-" * 60)
 
 if __name__ == "__main__":
