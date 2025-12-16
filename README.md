@@ -4,22 +4,33 @@ This tool (`setup_framework.py`) is a wrapper that automates the initialization 
 
 ## Prerequisites
 
+* **ROOT** (v6.x)
 * **Python 3**
-* **ROOT** (Must be sourced, e.g., `source /cvmfs/sft.cern.ch/lcg/views/LCG_.../setup.sh` or standard CMS environment)
-* A sample ROOT file (NanoAOD or MiniAOD) to extract the Tree structure.
+* **VOMS Proxy** (For accessing files via XRootD)
+   ```bash
+   voms-proxy-init --voms cms
+   ```
 
 ## Usage
 
-### 1. Generate the Code
+### 1. Get File List
+First, generate a list of file paths from a dataset name using `dasgoclient`.
+```bash
+# Edit the dataset name in get_file_list.py before running
+python3 get_file_list.py
+# Output: file_list.txt
+```
+
+### 2. Generate the Code
 Run the python script. You must provide a sample file.
 
 ```bash
 # Basic Usage (Default class name: CMSAnalyzer, Tree: Events)
-python3 setup_framework.py -f /path/to/sample_file.root
+python3 setup_framework.py -f root://cms-xrd-global.cern.ch///store/mc/.../sample.root
 # --> This will create a folder named "CMSAnalyzer" and put all code inside it.
 
 # Custom Usage
-python3 setup_framework.py -f sample.root -t Events -c MyPhysicsAnalyzer
+python3 setup_framework.py -f root://.../sample.root -t Events -c MyPhysicsAnalyzer
 # --> This will create a folder named "MyPhysicsAnalyzer" and put all code inside it.
 ```
 
@@ -31,7 +42,7 @@ Directory Structure Created:
 ├── setup_framework.py
 ├── get_file_list.py
 ├── file_list.txt
-└── CMSAnalyzer/          <-- New Directory Created as user defined name
+└── CMSAnalyzer/          <-- Created Directory
     ├── CMSAnalyzer.h
     ├── CMSAnalyzer.C
     ├── main.cc
@@ -104,3 +115,105 @@ Bash
 2.  **Integrated `main.cc`**: You don't need to write the C++ boilerplate code to read `std::ifstream` or setup `TChain`. It creates a robust `main.cc` that links to your Analyzer.
 3.  **Smart Makefile**: It creates a `Makefile` that handles the linking between the `.cc` (main) and `.C` (Analyzer) files automatically using `root-config`.
 4.  **Flexibility**: You can change the class name (`-c`) or the tree name (`-t`) via arguments without changing the python code.
+
+
+
+## Implement Analysis Logic
+
+Go into the generated directory. Open the `.C` file (e.g., `MyPhysicsAnalyzer.C`) and modify the `Loop()` function.
+
+#### **Example Code Snippet**
+
+Copy and paste the following code into your `Loop()` function to plot **Muon, Electron, and Jet** kinematics.
+
+**Don't forget to add headers at the top of the `.C` file:**
+
+C++
+
+```
+#include <TH2.h>
+#include <TStyle.h>
+#include <TCanvas.h>
+#include <iostream>
+```
+
+**Implementation inside `Loop()`:**
+
+C++
+
+```
+void MyPhysicsAnalyzer::Loop()
+{
+   if (fChain == 0) return;
+
+   Long64_t nentries = fChain->GetEntriesFast();
+
+   // --- [1] Define Histograms ---
+   TH1F *h_mu_pt   = new TH1F("h_mu_pt",   "Muon p_{T};p_{T} (GeV);Events", 100, 0, 200);
+   TH1F *h_mu_eta  = new TH1F("h_mu_eta",  "Muon #eta;#eta;Events", 50, -2.5, 2.5);
+   
+   TH1F *h_ele_pt  = new TH1F("h_ele_pt",  "Electron p_{T};p_{T} (GeV);Events", 100, 0, 200);
+   TH1F *h_ele_eta = new TH1F("h_ele_eta", "Electron #eta;#eta;Events", 50, -2.5, 2.5);
+   
+   TH1F *h_jet_pt  = new TH1F("h_jet_pt",  "Jet p_{T};p_{T} (GeV);Events", 100, 0, 400);
+   TH1F *h_jet_phi = new TH1F("h_jet_phi", "Jet #phi;#phi;Events", 50, -3.14, 3.14);
+
+   Long64_t nbytes = 0, nb = 0;
+   
+   // --- [2] Event Loop ---
+   for (Long64_t jentry=0; jentry<nentries;jentry++) {
+      Long64_t ientry = LoadTree(jentry);
+      if (ientry < 0) break;
+      nb = fChain->GetEntry(jentry);   nbytes += nb;
+
+      // Print progress
+      if(jentry % 10000 == 0) std::cout << "Processing Entry: " << jentry << std::endl;
+
+      // --- [3] Muon Loop (Example) ---
+      for (int i = 0; i < nMuon; i++) {
+          if (Muon_pt[i] > 20) { 
+              h_mu_pt->Fill(Muon_pt[i]);
+              h_mu_eta->Fill(Muon_eta[i]);
+          }
+      }
+
+      // --- [4] Electron Loop (Example) ---
+      for (int i = 0; i < nElectron; i++) {
+          h_ele_pt->Fill(Electron_pt[i]);
+          h_ele_eta->Fill(Electron_eta[i]);
+      }
+
+      // --- [5] Jet Loop (Example) ---
+      for (int i = 0; i < nJet; i++) {
+          if (Jet_pt[i] > 30) {
+              h_jet_pt->Fill(Jet_pt[i]);
+              h_jet_phi->Fill(Jet_phi[i]);
+          }
+      }
+   }
+
+   // --- [6] Save Histograms ---
+   TFile *f_out = new TFile("output.root", "RECREATE");
+   h_mu_pt->Write();
+   h_mu_eta->Write();
+   h_ele_pt->Write();
+   h_ele_eta->Write();
+   h_jet_pt->Write();
+   h_jet_phi->Write();
+   
+   f_out->Close();
+   std::cout << "Analysis Complete. Output saved to 'output.root'" << std::endl;
+}
+```
+
+## Compile and Run
+
+Once your code is ready, use the generated `Makefile`.
+
+Bash
+
+```
+cd MyPhysicsAnalyzer
+make
+./runAnalysis file_list.txt
+```
