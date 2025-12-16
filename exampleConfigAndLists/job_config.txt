@@ -1,0 +1,6 @@
+lists/filelist_ttHH.txt              ttHHto4b_2017        0.00000109763773   0   ttHHto4b
+lists/filelist_ttTohadronic.txt      TTToHadronic_2017    0.06745986328      0   ttbarHad
+lists/filelist_TTToSemiLeptonic.txt  TTToSemiLep_2017     0.01049544017      0   ttbarSemiLep
+lists/filelist_TTTo2L2Nu.txt         TTToDiLep_2017       0.1419595905       0   ttbarDiLep
+lists/filelist_JetHT_C.txt           JetHT_C_2017         1.00               1   JetHT_C
+lists/filelist_BTagCSV_D.txt         BTagCSV_D_2017       1.00               1   BTagCSV_D
