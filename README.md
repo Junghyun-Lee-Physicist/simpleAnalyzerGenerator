@@ -268,7 +268,7 @@ or for more detail version
 
 ```BASH
 # Run on MC (Weight 0.5, Process ttbar)
-./runAnalysis file_list.txt output_test.root 0.5 0 ttbar
+./runAnalysis file_list.txt output_test_ttHHto4b.root 0.00000109763773 0 ttHHto4b
 
 # Run on Data (Weight 1.0, IsData 1)
 ./runAnalysis data_list.txt output_data.root 1.0 1 data
@@ -286,9 +286,9 @@ Plaintext
 
 ```
 # job_config.txt (Example)
-lists/ttbar.txt   ttbar_2017   1.23   0   ttbar
-lists/data.txt    data_2017    1.00   1   data
-lists/dy.txt      dy_2017      0.89   0   dy
+lists/ttbar_had.txt    TTToHadronic_2017    0.06745986328      0   ttbarHad
+lists/ttHHto4b.txt     ttHHto4b_2017        0.00000109763773   0   ttHHto4b
+lists/JetHT_C.txt      JetHT_C_2017         1.00               1   JetHT_C
 ```
 
 ### Step 2: Check `submit_condor.py`
