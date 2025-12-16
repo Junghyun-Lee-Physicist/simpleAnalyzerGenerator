@@ -7,10 +7,12 @@ import textwrap
 
 def main():
     """
-    CMS Analysis Framework Generator (Advanced - Warning Fixed)
+    CMS Analysis Framework Generator (Advanced - Final Fix)
     
-    Updates:
-      - Fixed signed/unsigned comparison warnings in loops (int -> UInt_t).
+    Fixes:
+      1. Wrapper script now uses 'eval $(scramv1 runtime -sh)' instead of 'cmsenv'.
+      2. Wrapper checks if 'runAnalysis' exists before running.
+      3. Analyzer code uses UInt_t to avoid compiler warnings.
     """
     parser = argparse.ArgumentParser(description="Generate an Advanced CMS Analysis Framework")
     parser.add_argument("-f", "--file", required=True, help="Sample ROOT file path")
@@ -59,6 +61,7 @@ def main():
         inserted = False
         for line in lines:
             f_h_new.write(line)
+            # Robust check for public section
             if "public" in line and ":" in line and not inserted:
                 f_h_new.write("\n   // --- [Advanced] User Settings ---\n")
                 f_h_new.write("   float fWeight = 1.0;\n")
@@ -71,7 +74,6 @@ def main():
     if os.path.exists(header_path): os.remove(header_path)
 
     # 4. [Advanced] Fully Implemented Source (.C)
-    # [FIX] Loop variables changed from 'int' to 'UInt_t' to match NanoAOD types
     source_content = f"""#define {class_name}_cxx
 #include "{class_name}.h"
 #include <TH1.h>
@@ -90,28 +92,16 @@ void {class_name}::Loop()
    std::cout << "[Analyzer] Output File: " << fOutputFileName << std::endl;
    TFile *f_out = new TFile(fOutputFileName, "RECREATE");
    
-   // --- [2] Define Histograms (Muon, Electron, Jet) ---
-   
-   // Muon
+   // --- [2] Define Histograms ---
    TH1F *h_mu_pt  = new TH1F("h_mu_pt",  "Muon p_{{T}};p_{{T}} (GeV);Events", 100, 0, 300);
    TH1F *h_mu_eta = new TH1F("h_mu_eta", "Muon #eta;#eta;Events", 60, -3.0, 3.0);
-   TH1F *h_mu_phi = new TH1F("h_mu_phi", "Muon #phi;#phi;Events", 60, -3.2, 3.2);
-
-   // Electron
-   TH1F *h_ele_pt  = new TH1F("h_ele_pt",  "Electron p_{{T}};p_{{T}} (GeV);Events", 100, 0, 300);
-   TH1F *h_ele_eta = new TH1F("h_ele_eta", "Electron #eta;#eta;Events", 60, -3.0, 3.0);
-   TH1F *h_ele_phi = new TH1F("h_ele_phi", "Electron #phi;#phi;Events", 60, -3.2, 3.2);
-
-   // Jet
-   TH1F *h_jet_pt  = new TH1F("h_jet_pt",  "Jet p_{{T}};p_{{T}} (GeV);Events", 100, 0, 500);
-   TH1F *h_jet_eta = new TH1F("h_jet_eta", "Jet #eta;#eta;Events", 60, -5.0, 5.0);
-   TH1F *h_jet_phi = new TH1F("h_jet_phi", "Jet #phi;#phi;Events", 60, -3.2, 3.2);
+   TH1F *h_ele_pt = new TH1F("h_ele_pt", "Electron p_{{T}};p_{{T}} (GeV);Events", 100, 0, 300);
+   TH1F *h_jet_pt = new TH1F("h_jet_pt", "Jet p_{{T}};p_{{T}} (GeV);Events", 100, 0, 500);
 
    std::cout << "[Analyzer] Info: " << fProcess << " | Weight: " << fWeight << " | IsData: " << fIsData << std::endl;
 
    Long64_t nbytes = 0, nb = 0;
    
-   // --- [3] Event Loop ---
    for (Long64_t jentry=0; jentry<nentries;jentry++) {{
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
@@ -119,42 +109,31 @@ void {class_name}::Loop()
 
       if(jentry % 10000 == 0) std::cout << "Processing Entry " << jentry << " / " << nentries << std::endl;
 
-      // Determine Weight (Use 1.0 for Data, fWeight for MC)
       float w = (fIsData) ? 1.0 : fWeight;
 
       // --- [Muon Loop] ---
-      // [FIX] Changed int -> UInt_t to avoid signedness warning
+      // Uses UInt_t to prevent signed/unsigned warnings
       for (UInt_t i = 0; i < nMuon; i++) {{
           if (Muon_pt[i] > 10) {{ 
               h_mu_pt->Fill(Muon_pt[i], w);
               h_mu_eta->Fill(Muon_eta[i], w);
-              h_mu_phi->Fill(Muon_phi[i], w);
           }}
       }}
 
       // --- [Electron Loop] ---
       for (UInt_t i = 0; i < nElectron; i++) {{
-          if (Electron_pt[i] > 10) {{
-              h_ele_pt->Fill(Electron_pt[i], w);
-              h_ele_eta->Fill(Electron_eta[i], w);
-              h_ele_phi->Fill(Electron_phi[i], w);
-          }}
+          if (Electron_pt[i] > 10) h_ele_pt->Fill(Electron_pt[i], w);
       }}
 
       // --- [Jet Loop] ---
       for (UInt_t i = 0; i < nJet; i++) {{
-          if (Jet_pt[i] > 20) {{
-              h_jet_pt->Fill(Jet_pt[i], w);
-              h_jet_eta->Fill(Jet_eta[i], w);
-              h_jet_phi->Fill(Jet_phi[i], w);
-          }}
+          if (Jet_pt[i] > 20) h_jet_pt->Fill(Jet_pt[i], w);
       }}
    }}
 
-   // --- [4] Save & Close ---
    f_out->Write();
    f_out->Close();
-   std::cout << "[Analyzer] Job Finished. Histograms saved to " << fOutputFileName << std::endl;
+   std::cout << "[Analyzer] Finished." << std::endl;
 }}
 """
     with open(f"src/{class_name}.C", "w") as f_src:
@@ -171,13 +150,12 @@ void {class_name}::Loop()
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <cstdlib> // for atof, atoi
+#include <cstdlib>
 #include "TChain.h"
 
 int main(int argc, char* argv[]) {{
-    // Arguments: List, Output, Weight, IsData, Process
     if (argc < 2) {{
-        std::cout << "Usage: " << argv[0] << " <file_list> [output_name] [weight] [isData] [process]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " <file_list> [output] [weight] [isData] [process]" << std::endl;
         return 1;
     }}
 
@@ -186,9 +164,6 @@ int main(int argc, char* argv[]) {{
     float weight             = (argc > 3) ? atof(argv[3]) : 1.0;
     bool isData              = (argc > 4) ? (bool)atoi(argv[4]) : false;
     std::string process      = (argc > 5) ? argv[5] : "Unknown";
-
-    std::cout << "[Main] Input List : " << listFileName << std::endl;
-    std::cout << "[Main] Output File: " << outFileName << std::endl;
 
     TChain *chain = new TChain("{tree_name}");
     std::ifstream infile(listFileName);
@@ -199,8 +174,6 @@ int main(int argc, char* argv[]) {{
     }}
 
     {class_name} t(chain);
-    
-    // Pass parameters to Analyzer
     t.fOutputFileName = outFileName;
     t.fWeight = weight;
     t.fIsData = isData;
@@ -243,7 +216,7 @@ clean:
         f_make.write(makefile_code)
 
 
-    # 7. Generate Advanced submit_condor.py
+    # 7. Generate Advanced submit_condor.py (Wrapper Fixes Included)
     condor_script = textwrap.dedent(f"""\
     #!/usr/bin/env python3
     import os
@@ -274,7 +247,6 @@ clean:
         is_data     = parts[3]
         process     = parts[4]
 
-        # Logs stored in condor/ directory
         job_dir = f"condor/{{output_dir}}"
         os.makedirs(job_dir, exist_ok=True)
         
@@ -297,28 +269,41 @@ clean:
                 output_name = f"output_{{i}}.root"
                 eos_dest = f"{{EOS_BASE}}/{{output_dir}}"
                 
-                # Args: ChunkPath, OutputName, EOSDir, Weight, IsData, Process
                 f_args.write(f"{{chunk_path}} {{output_name}} {{eos_dest}} {{weight}} {{is_data}} {{process}}\\n")
 
-        # Wrapper Script
+        # --- Wrapper Script (FIXED) ---
         wrapper_path = f"{{job_dir}}/wrapper.sh"
         with open(wrapper_path, 'w') as f_sh:
-            f_sh.write(f"#!/bin/bash\\ncd {{os.getcwd()}}\\n")
-            f_sh.write("source /cvmfs/cms.cern.ch/cmsset_default.sh\\ncmsenv\\n")
-            f_sh.write(f"./{{EXE_NAME}} $1 $2 $4 $5 $6\\n")
-            f_sh.write(f"xrdcp -f $2 root://eosuser.cern.ch/$3/$2\\nrm $2\\n")
+            f_sh.write(f"#!/bin/bash\\n")
+            f_sh.write(f"cd {{os.getcwd()}}\\n")  # Go to Analyzer Directory
+            f_sh.write(f"source /cvmfs/cms.cern.ch/cmsset_default.sh\\n")
+            f_sh.write(f"eval $(scramv1 runtime -sh)\\n") # FIXED: Use eval instead of cmsenv
+            
+            f_sh.write(f"# Verify Executable\\n")
+            f_sh.write(f"if [ ! -f ./{{EXE_NAME}} ]; then\\n")
+            f_sh.write(f"    echo 'ERROR: {{EXE_NAME}} not found! Please run \\\"make\\\" first.'\\n")
+            f_sh.write(f"    exit 1\\n")
+            f_sh.write(f"fi\\n")
+            
+            f_sh.write(f"# Run Analyzer\\n")
+            f_sh.write(f"./{{EXE_NAME}} $1 $2 $4 $5 $6\\n") # $1=Input $2=OutName $4=Weight $5=IsData $6=Process
+            f_sh.write(f"# Copy to EOS\\n")
+            f_sh.write(f"xrdcp -f $2 root://eosuser.cern.ch/$3/$2\\n")
+            f_sh.write(f"rm $2\\n")
+            
         os.chmod(wrapper_path, 0o755)
 
-        # Condor Submit File
         sub_path = f"{{job_dir}}/job.sub"
         with open(sub_path, 'w') as f_sub:
             f_sub.write(f"executable = {{wrapper_path}}\\narguments = $(args)\\n")
             f_sub.write(f"output = {{job_dir}}/job.$(ClusterId).$(ProcId).out\\n")
             f_sub.write(f"error = {{job_dir}}/job.$(ClusterId).$(ProcId).err\\n")
             f_sub.write(f"log = {{job_dir}}/job.log\\n")
-            f_sub.write(f"getenv = True\\n+JobFlavour = \\"tomorrow\\"\\nqueue args from {{arg_file}}\\n")
+            f_sub.write(f"getenv = True\\n+JobFlavour = \\"tomorrow\\"\\n")
+            # Force EL9 if compiling on EL9, or try to run anyway
+            f_sub.write(f"queue args from {{arg_file}}\\n")
         
-        print(f"[INFO] Submitting to Condor... Logs: {{job_dir}}")
+        print(f"[INFO] Submitting... Logs: {{job_dir}}")
         subprocess.call(["condor_submit", sub_path])
 
     if __name__ == "__main__":
