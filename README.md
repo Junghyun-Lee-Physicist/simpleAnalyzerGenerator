@@ -4,6 +4,8 @@ This tool (`setup_framework.py`) is a wrapper that automates the initialization 
 
 And You can use more advanced version (`setup_framework_advanced.py`) to create more detail C++ framework and also has more arguments.
 
+---
+
 ## Prerequisites
 
 * **ROOT** (v6.x)
@@ -12,6 +14,8 @@ And You can use more advanced version (`setup_framework_advanced.py`) to create 
    ```bash
    voms-proxy-init --voms cms
    ```
+
+---
 
 ## Usage
 
@@ -65,9 +69,10 @@ Directory Structure Created:
 - `main.cc`: C++ runner that handles file lists and TChains.
     
 - `Makefile`: Configuration to compile everything.
-    
 
-### 2. Compile
+---
+
+### 3. Compile
 
 Simply run `make` in the Analyzer directory.
 
@@ -80,7 +85,7 @@ make
 
 This will produce an executable named **`runAnalysis`**.
 
-### 3. Run
+### 4. Run
 
 Prepare a text file containing the list of ROOT files you want to analyze (e.g., `file_list.txt`).
 
@@ -117,7 +122,8 @@ Bash
     make
     ./runAnalysis file_list.txt
     ```
- 
+---
+
 ## Workflow Example for detail version
 
 1. **Get File List:** Use your DAS script to get files.
@@ -268,7 +274,9 @@ or for more detail version
 ./runAnalysis data_list.txt output_data.root 1.0 1 data
 ```
 
-## 3. How to Submit to Condor
+---
+
+## How to Submit to Condor
 
 ### Step 1: Prepare Config File
 
