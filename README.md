@@ -1,6 +1,6 @@
 # CMS Analysis Framework Generator
 
-This tool (`setup_framework.py`) is a wrapper that automates the initialization of a ROOT-based analysis framework. It replaces the manual process of running `MakeClass`, writing a `main` function, and creating a `Makefile`.
+This tool (`setup_framework.py`) is a wrapper that automates the initialization of a ROOT-based analysis framework. It replaces the manual process of running `MakeClass`, writing a `main` function, and creating a `Makefile`. And You can use more advanced version (`setup_framework_advanced.py`) to create more detail C++ framework and also has more arguments.
 
 ## Prerequisites
 
@@ -45,11 +45,15 @@ Directory Structure Created:
 ├── README.md
 └── CMSAnalyzer/          <-- Created Directory
     ├── Makefile
+    ├── main.cc
+    ├── submit_condor.py          # HTCondor Job Submitter
     ├── include/
-    │   └── CMSAnalyzer.h
+    │   └── CMSAnalyzer.h     # Header (Auto-injected with settings)
     └── src/
-        ├── CMSAnalyzer.C
-        └── main.cc
+    │   └── CMSAnalyzer.C     # Source (Loop with Histograms)
+    └── condor/                   # [NEW] Directory for Condor logs & files
+            └── (job folders...)
+
 ```
 
 - `CMSAnalyzer.h`: Header file defining the Tree structure.
@@ -111,7 +115,38 @@ Bash
     make
     ./runAnalysis file_list.txt
     ```
+ 
+## Workflow Example for detail version
+
+1. **Get File List:** Use your DAS script to get files.
     
+    ```Bash
+    python3 get_file_list.py
+    ```
+    
+2. **Setup Framework:** (Only needed once)
+    
+    ```Bash
+    # Use one of the files from the list as a template
+    python3 setup_framework_advanced.py -f "root://cms-xrd-global.cern.ch///store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
+    cd CMSAnalyzer
+    ```
+    
+3. **Edit Code:** Open `CMSAnalyzer.C` and modify the `Loop()` function to add your physics logic.
+    
+4. **Build & Run:**
+    
+    ```Bash
+    mv ../file_list.txt .
+
+    # Run on MC (Weight 0.5, Process ttbar)
+    ./runAnalysis file_list.txt output_test.root 0.5 0 ttbar
+
+    # Run on Data (Weight 1.0, IsData 1)
+    ./runAnalysis data_list.txt output_data.root 1.0 1 data
+    ```
+    
+  
 ---
 
 ## Key Features of this Wrapper
@@ -215,10 +250,71 @@ void MyPhysicsAnalyzer::Loop()
 
 Once your code is ready, use the generated `Makefile`.
 
-Bash
-
-```
+```BASH
 cd MyPhysicsAnalyzer
 make
 ./runAnalysis file_list.txt
+```
+
+or for more detail version
+
+```BASH
+# Run on MC (Weight 0.5, Process ttbar)
+./runAnalysis file_list.txt output_test.root 0.5 0 ttbar
+
+# Run on Data (Weight 1.0, IsData 1)
+./runAnalysis data_list.txt output_data.root 1.0 1 data
+```
+
+## 3. How to Submit to Condor
+
+### Step 1: Prepare Config File
+
+Create a text file (e.g., `job_config.txt`) where each line represents a dataset job. **Format:** `ListFile OutputDirName Weight IsData(0/1) ProcessName`
+
+Plaintext
+
+```
+# job_config.txt (Example)
+lists/ttbar.txt   ttbar_2017   1.23   0   ttbar
+lists/data.txt    data_2017    1.00   1   data
+lists/dy.txt      dy_2017      0.89   0   dy
+```
+
+### Step 2: Check `submit_condor.py`
+
+Open `submit_condor.py` and ensure the `EOS_BASE` variable matches your EOS directory.
+
+Python
+
+```
+EOS_BASE = "/eos/user/j/junghyun/ttHH/AnalyzerOutput"
+```
+
+### Step 3: Submit Jobs
+
+Run the python script with your config file.
+
+Bash
+
+```
+voms-proxy-init --voms cms
+python3 submit_condor.py job_config.txt
+```
+
+### Step 4: Check Logs
+
+The script will **not** clutter your root directory. All job files are created inside `condor/`.
+
+- **Logs & Error**: `condor/<OutputDirName>/job.*.out` / `.err`
+    
+- **Submit File**: `condor/<OutputDirName>/job.sub`
+    
+- **Wrapper**: `condor/<OutputDirName>/wrapper.sh`
+    
+
+Bash
+
+```
+ls -l condor/ttbar_2017/
 ```
