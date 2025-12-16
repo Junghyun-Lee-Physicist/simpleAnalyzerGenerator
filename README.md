@@ -88,7 +88,7 @@ Bash
 1. **Get File List:** Use your DAS script to get files.
     
     ```Bash
-    python3 get_file_list.py > file_list.txt
+    python3 get_file_list.py
     ```
     
 2. **Setup Framework:** (Only needed once)
