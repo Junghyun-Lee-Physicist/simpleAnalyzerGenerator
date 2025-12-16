@@ -7,13 +7,10 @@ import textwrap
 
 def main():
     """
-    CMS Analysis Framework Generator (Advanced - Full Features)
+    CMS Analysis Framework Generator (Advanced - Warning Fixed)
     
-    Features:
-      - Directory Structure: main.cc (Root), src/, include/, condor/
-      - Auto-injects settings (weight, isData, process) into Header.
-      - [UPDATED] Pre-fills Loop() with REAL logic for Jet/Ele/Muon (Pt, Eta, Phi).
-      - Generates submit_condor.py for HTCondor submission.
+    Updates:
+      - Fixed signed/unsigned comparison warnings in loops (int -> UInt_t).
     """
     parser = argparse.ArgumentParser(description="Generate an Advanced CMS Analysis Framework")
     parser.add_argument("-f", "--file", required=True, help="Sample ROOT file path")
@@ -54,7 +51,6 @@ def main():
     f.Close()
 
     # 3. [Advanced] Inject Member Variables into Header (.h)
-    # Fixed logic to robustly find 'public' section even with spaces
     header_path = f"{class_name}.h"
     with open(header_path, "r") as f_h:
         lines = f_h.readlines()
@@ -63,7 +59,6 @@ def main():
         inserted = False
         for line in lines:
             f_h_new.write(line)
-            # Insert variables after the first public section
             if "public" in line and ":" in line and not inserted:
                 f_h_new.write("\n   // --- [Advanced] User Settings ---\n")
                 f_h_new.write("   float fWeight = 1.0;\n")
@@ -76,7 +71,7 @@ def main():
     if os.path.exists(header_path): os.remove(header_path)
 
     # 4. [Advanced] Fully Implemented Source (.C)
-    # Now includes Jet, Electron, Muon histograms (Pt, Eta, Phi)
+    # [FIX] Loop variables changed from 'int' to 'UInt_t' to match NanoAOD types
     source_content = f"""#define {class_name}_cxx
 #include "{class_name}.h"
 #include <TH1.h>
@@ -128,8 +123,8 @@ void {class_name}::Loop()
       float w = (fIsData) ? 1.0 : fWeight;
 
       // --- [Muon Loop] ---
-      for (int i = 0; i < nMuon; i++) {{
-          // Simple selection example (optional)
+      // [FIX] Changed int -> UInt_t to avoid signedness warning
+      for (UInt_t i = 0; i < nMuon; i++) {{
           if (Muon_pt[i] > 10) {{ 
               h_mu_pt->Fill(Muon_pt[i], w);
               h_mu_eta->Fill(Muon_eta[i], w);
@@ -138,7 +133,7 @@ void {class_name}::Loop()
       }}
 
       // --- [Electron Loop] ---
-      for (int i = 0; i < nElectron; i++) {{
+      for (UInt_t i = 0; i < nElectron; i++) {{
           if (Electron_pt[i] > 10) {{
               h_ele_pt->Fill(Electron_pt[i], w);
               h_ele_eta->Fill(Electron_eta[i], w);
@@ -147,7 +142,7 @@ void {class_name}::Loop()
       }}
 
       // --- [Jet Loop] ---
-      for (int i = 0; i < nJet; i++) {{
+      for (UInt_t i = 0; i < nJet; i++) {{
           if (Jet_pt[i] > 20) {{
               h_jet_pt->Fill(Jet_pt[i], w);
               h_jet_eta->Fill(Jet_eta[i], w);
@@ -279,7 +274,7 @@ clean:
         is_data     = parts[3]
         process     = parts[4]
 
-        # Use 'condor/' directory for logs
+        # Logs stored in condor/ directory
         job_dir = f"condor/{{output_dir}}"
         os.makedirs(job_dir, exist_ok=True)
         
