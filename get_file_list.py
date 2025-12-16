@@ -25,7 +25,7 @@ def get_file_list(dataset_name):
 
     # Define the Global Redirector.
     # This allows ROOT to access files via XRootD from any location.
-    redirector = "root://cms-xrd-global.cern.ch/"
+    redirector = "root://cms-xrd-global.cern.ch//"
 ##    redirector = "root://xrootd-cms.infn.it//"
 
     # Prepend the redirector to each file path (LFN -> PFN).

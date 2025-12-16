@@ -84,7 +84,7 @@ Bash
     
     ```Bash
     # Use one of the files from the list as a template
-    pyhon3 setup_framework.py -f "root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
+    python3 setup_framework.py -f "root://cms-xrd-global.cern.ch///store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
     ```
     
 3. **Edit Code:** Open `CMSAnalyzer.C` and modify the `Loop()` function to add your physics logic.

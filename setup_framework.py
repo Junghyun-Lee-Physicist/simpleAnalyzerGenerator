@@ -5,55 +5,51 @@ import argparse
 
 def main():
     """
-    CMS Analysis Framework Generator (Directory Supported)
+    CMS Analysis Framework Generator (Raw Path Version)
     
-    1. Creates a directory named after the Class.
-    2. Opens the sample ROOT file.
-    3. Generates Analyzer (MakeClass), main.cc, and Makefile inside that directory.
+    1. Opens the sample ROOT file (using the raw string provided by user).
+    2. Creates a directory named after the Class.
+    3. Moves into that directory.
+    4. Generates Analyzer (MakeClass), main.cc, and Makefile.
     """
 
     # --- 1. Argument Parsing ---
     parser = argparse.ArgumentParser(description="Generate a CMS ROOT Analysis Framework via MakeClass")
-    parser.add_argument("-f", "--file", required=True, help="Path to a sample ROOT file (e.g., samples/ttHH.root)")
+    parser.add_argument("-f", "--file", required=True, help="Path to a sample ROOT file (Raw string used as-is)")
     parser.add_argument("-t", "--tree", default="Events", help="Name of the TTree in the file (default: Events)")
-    parser.add_argument("-c", "--class", dest="classname", default="CMSAnalyzer", help="Name of the Analyzer class (creates a folder with this name)")
+    parser.add_argument("-c", "--class", dest="classname", default="CMSAnalyzer", help="Name of the Analyzer class")
     
     args = parser.parse_args()
     
-    # Get absolute path of the input file to avoid issues when changing directories
-    sample_file = os.path.abspath(args.file)
+    # [UPDATED] No path processing. Use the raw string exactly as the user provided.
+    sample_file = args.file
+    
     tree_name = args.tree
     class_name = args.classname
-    output_dir = class_name  # Directory name is the same as class name
+    output_dir = class_name
 
     print("-" * 60)
     print(f"[INFO] Initializing Framework Generation")
     print(f"[INFO] Target Directory: ./{output_dir}")
-    print(f"[INFO] Sample File     : {sample_file}")
+    print(f"[INFO] Sample File     : {sample_file}") # Raw Input
     print(f"[INFO] Class Name      : {class_name}")
     print("-" * 60)
 
-    # --- 2. Create Directory ---
-    if os.path.exists(output_dir):
-        print(f"[WARNING] Directory '{output_dir}' already exists.")
-        # Optional: Ask for confirmation or just proceed
-    else:
-        try:
-            os.makedirs(output_dir)
-            print(f"[INFO] Created directory: {output_dir}")
-        except OSError as e:
-            print(f"[ERROR] Failed to create directory {output_dir}: {e}")
-            sys.exit(1)
-
-    # --- 3. Check ROOT Availability ---
+    # --- 2. Check ROOT Availability ---
     try:
         import ROOT
     except ImportError:
         print("[ERROR] Could not import ROOT module. Please check your environment.")
         sys.exit(1)
 
-    # --- 4. Run MakeClass via PyROOT ---
+    # --- 3. Open File & Get Tree (BEFORE changing directory) ---
+    # We open the file HERE using the raw path. 
+    # This ensures that if the user provided a relative path (e.g., "../data.root"), 
+    # it opens correctly relative to where the script is running.
     print(f"[INFO] Opening file to extract TTree structure...")
+    
+    # Suppress ROOT info messages
+    ROOT.gROOT.SetBatch(True)
     
     f = ROOT.TFile.Open(sample_file, "READ")
     if not f or f.IsZombie():
@@ -67,24 +63,36 @@ def main():
         sys.exit(1)
 
     print(f"[INFO] Found TTree '{tree_name}' with {tree.GetEntries()} entries.")
-    
-    # Change working directory to the output folder so files are generated there
+
+    # --- 4. Create Directory & Move ---
+    if os.path.exists(output_dir):
+        print(f"[WARNING] Directory '{output_dir}' already exists.")
+    else:
+        try:
+            os.makedirs(output_dir)
+            print(f"[INFO] Created directory: {output_dir}")
+        except OSError as e:
+            print(f"[ERROR] Failed to create directory {output_dir}: {e}")
+            sys.exit(1)
+
+    # Change working directory to the output folder
     original_cwd = os.getcwd()
     os.chdir(output_dir)
     print(f"[INFO] Changed working directory to: {os.getcwd()}")
 
+    # --- 5. Run MakeClass ---
     print(f"[INFO] Running MakeClass('{class_name}')...")
-    ROOT.gROOT.SetBatch(True)
+    
+    # MakeClass generates files in the current working directory (output_dir)
     tree.MakeClass(class_name)
     f.Close() # Close file after generation
 
-    # Verify generation
     if not (os.path.exists(f"{class_name}.C") and os.path.exists(f"{class_name}.h")):
         print("[ERROR] MakeClass failed to generate files.")
         sys.exit(1)
 
 
-    # --- 5. Generate main.cc ---
+    # --- 6. Generate main.cc ---
     main_filename = "main.cc"
     print(f"[INFO] Generating C++ entry point: {main_filename}...")
     
@@ -102,7 +110,6 @@ def main():
 #include "TString.h"
 
 int main(int argc, char* argv[]) {{
-    // Check command line arguments
     if (argc < 2) {{
         std::cout << "Usage: " << argv[0] << " <file_list.txt>" << std::endl;
         return 1;
@@ -111,10 +118,7 @@ int main(int argc, char* argv[]) {{
     std::string listFileName = argv[1];
     std::cout << "[Main] Processing file list: " << listFileName << std::endl;
 
-    // Create TChain
     TChain *chain = new TChain("{tree_name}");
-
-    // Read file list
     std::ifstream infile(listFileName);
     std::string line;
     int nFiles = 0;
@@ -137,7 +141,6 @@ int main(int argc, char* argv[]) {{
 
     std::cout << "[Main] Total " << nFiles << " files added to TChain." << std::endl;
 
-    // Initialize Analyzer
     {class_name} t(chain);
     
     std::cout << "[Main] Starting Event Loop..." << std::endl;
@@ -151,7 +154,7 @@ int main(int argc, char* argv[]) {{
         f_main.write(main_code)
 
 
-    # --- 6. Generate Makefile ---
+    # --- 7. Generate Makefile ---
     makefile_name = "Makefile"
     print(f"[INFO] Generating Makefile: {makefile_name}...")
 
@@ -185,17 +188,11 @@ clean:
     with open(makefile_name, "w") as f_make:
         f_make.write(makefile_code)
 
-    # --- 7. Finalize ---
-    # Switch back to original directory
+    # --- 8. Finalize ---
     os.chdir(original_cwd)
 
     print("-" * 60)
     print(f"[DONE] Framework generated in directory: {output_dir}/")
-    print(f"       Follow these steps to run:")
-    print(f"       1. cd {output_dir}")
-    print(f"       2. (Modify {class_name}.C to add your logic)")
-    print(f"       3. make")
-    print(f"       4. ./runAnalysis ../file_list.txt") 
     print("-" * 60)
 
 if __name__ == "__main__":
