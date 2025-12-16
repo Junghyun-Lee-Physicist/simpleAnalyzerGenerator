@@ -1,6 +1,6 @@
 # CMS Analysis Framework Generator
 
-This tool (`setup_framework.py`) is a wrapper that automates the initialization of a ROOT-based analysis framework. It replaces the manual process of running `MakeClass`, writing a `main` function, and creating a `Makefile`. 
+This tool (`setup_framework.py`) is a wrapper that automates the initialization of a ROOT-based analysis framework. It replaces the manual process of running `MakeClass`, writing a `main` function, and creating a `Makefile`.
 
 And You can use more advanced version (`setup_framework_advanced.py`) to create more detail C++ framework and also has more arguments.
 
@@ -63,11 +63,11 @@ Directory Structure Created:
 ```
 
 - `CMSAnalyzer.h`: Header file defining the Tree structure.
-    
+
 - `CMSAnalyzer.C`: Source file containing the `Loop()` function (Where you write your cuts/histograms).
-    
+
 - `main.cc`: C++ runner that handles file lists and TChains.
-    
+
 - `Makefile`: Configuration to compile everything.
 
 ---
@@ -100,23 +100,23 @@ Bash
 ## Workflow Example
 
 1. **Get File List:** Use your DAS script to get files.
-    
+
     ```Bash
     python3 get_file_list.py
     ```
-    
+
 2. **Setup Framework:** (Only needed once)
-    
+
     ```Bash
     # Use one of the files from the list as a template
     python3 setup_framework.py -f "root://cms-xrd-global.cern.ch///store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
     cd CMSAnalyzer
     ```
-    
+
 3. **Edit Code:** Open `CMSAnalyzer.C` and modify the `Loop()` function to add your physics logic.
-    
+
 4. **Build & Run:**
-    
+
     ```Bash
     mv ../file_list.txt .
     make
@@ -127,23 +127,23 @@ Bash
 ## Workflow Example for detail version
 
 1. **Get File List:** Use your DAS script to get files.
-    
+
     ```Bash
     python3 get_file_list.py
     ```
-    
+
 2. **Setup Framework:** (Only needed once)
-    
+
     ```Bash
     # Use one of the files from the list as a template
     python3 setup_framework_advanced.py -f "root://cms-xrd-global.cern.ch///store/mc/RunIISummer20UL17NanoAODv9/TTHHTo4b_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/30000/C038057C-3788-BE43-92E1-D4395DE47AF3.root"
     cd CMSAnalyzer
     ```
-    
+
 3. **Edit Code:** Open `CMSAnalyzer.C` and modify the `Loop()` function to add your physics logic.
-    
+
 4. **Build & Run:**
-    
+
     ```Bash
     mv ../file_list.txt .
 
@@ -153,8 +153,8 @@ Bash
     # Run on Data (Weight 1.0, IsData 1)
     ./runAnalysis data_list.txt output_data.root 1.0 1 data
     ```
-    
-  
+
+
 ---
 
 ## Key Features of this Wrapper
@@ -199,15 +199,15 @@ void MyPhysicsAnalyzer::Loop()
    // --- [1] Define Histograms ---
    TH1F *h_mu_pt   = new TH1F("h_mu_pt",   "Muon p_{T};p_{T} (GeV);Events", 100, 0, 200);
    TH1F *h_mu_eta  = new TH1F("h_mu_eta",  "Muon #eta;#eta;Events", 50, -2.5, 2.5);
-   
+
    TH1F *h_ele_pt  = new TH1F("h_ele_pt",  "Electron p_{T};p_{T} (GeV);Events", 100, 0, 200);
    TH1F *h_ele_eta = new TH1F("h_ele_eta", "Electron #eta;#eta;Events", 50, -2.5, 2.5);
-   
+
    TH1F *h_jet_pt  = new TH1F("h_jet_pt",  "Jet p_{T};p_{T} (GeV);Events", 100, 0, 400);
    TH1F *h_jet_phi = new TH1F("h_jet_phi", "Jet #phi;#phi;Events", 50, -3.14, 3.14);
 
    Long64_t nbytes = 0, nb = 0;
-   
+
    // --- [2] Event Loop ---
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
       Long64_t ientry = LoadTree(jentry);
@@ -219,7 +219,7 @@ void MyPhysicsAnalyzer::Loop()
 
       // --- [3] Muon Loop (Example) ---
       for (int i = 0; i < nMuon; i++) {
-          if (Muon_pt[i] > 20) { 
+          if (Muon_pt[i] > 20) {
               h_mu_pt->Fill(Muon_pt[i]);
               h_mu_eta->Fill(Muon_eta[i]);
           }
@@ -248,7 +248,7 @@ void MyPhysicsAnalyzer::Loop()
    h_ele_eta->Write();
    h_jet_pt->Write();
    h_jet_phi->Write();
-   
+
    f_out->Close();
    std::cout << "Analysis Complete. Output saved to 'output.root'" << std::endl;
 }
@@ -282,8 +282,6 @@ or for more detail version
 
 Create a text file (e.g., `job_config.txt`) where each line represents a dataset job. **Format:** `ListFile OutputDirName Weight IsData(0/1) ProcessName`
 
-Plaintext
-
 ```
 # job_config.txt (Example)
 lists/ttbar_had.txt    TTToHadronic_2017    0.06745986328      0   ttbarHad
@@ -295,9 +293,7 @@ lists/JetHT_C.txt      JetHT_C_2017         1.00               1   JetHT_C
 
 Open `submit_condor.py` and ensure the `EOS_BASE` variable matches your EOS directory.
 
-Python
-
-```
+```Python
 EOS_BASE = "/eos/user/j/junghyun/ttHH/AnalyzerOutput"
 ```
 
@@ -305,9 +301,7 @@ EOS_BASE = "/eos/user/j/junghyun/ttHH/AnalyzerOutput"
 
 Run the python script with your config file.
 
-Bash
-
-```
+```BASH
 voms-proxy-init --voms cms
 python3 submit_condor.py job_config.txt
 ```
@@ -317,14 +311,12 @@ python3 submit_condor.py job_config.txt
 The script will **not** clutter your root directory. All job files are created inside `condor/`.
 
 - **Logs & Error**: `condor/<OutputDirName>/job.*.out` / `.err`
-    
+
 - **Submit File**: `condor/<OutputDirName>/job.sub`
-    
+
 - **Wrapper**: `condor/<OutputDirName>/wrapper.sh`
-    
 
-Bash
 
-```
+```BASH
 ls -l condor/ttbar_2017/
 ```
