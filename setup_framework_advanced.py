@@ -93,10 +93,15 @@ void {class_name}::Loop()
    TFile *f_out = new TFile(fOutputFileName, "RECREATE");
    
    // --- [2] Define Histograms ---
-   TH1F *h_mu_pt  = new TH1F("h_mu_pt",  "Muon p_{{T}};p_{{T}} (GeV);Events", 100, 0, 300);
-   TH1F *h_mu_eta = new TH1F("h_mu_eta", "Muon #eta;#eta;Events", 60, -3.0, 3.0);
-   TH1F *h_ele_pt = new TH1F("h_ele_pt", "Electron p_{{T}};p_{{T}} (GeV);Events", 100, 0, 300);
-   TH1F *h_jet_pt = new TH1F("h_jet_pt", "Jet p_{{T}};p_{{T}} (GeV);Events", 100, 0, 500);
+   TH1F *h_mu_pt   = new TH1F("h_mu_pt",   "Muon p_{{T}};p_{{T}} (GeV);Events", 200, 0.0, 2000.0);
+   TH1F *h_mu_eta  = new TH1F("h_mu_eta",  "Muon #eta;#eta;Events", 60, -5.0, 5.0);
+   TH1F *h_mu_phi  = new TH1F("h_mu_phi",  "Muon #phi;#phi;Events", 60, -5.0, 5.0);
+   TH1F *h_ele_pt  = new TH1F("h_ele_pt",  "Electron p_{{T}};p_{{T}} (GeV);Events", 200, 0.0, 2000.0);
+   TH1F *h_ele_eta = new TH1F("h_ele_eta", "Electron #eta;#eta;Events", 100, -5.0, 5.0);
+   TH1F *h_ele_phi = new TH1F("h_ele_phi", "Electron #phi;#phi;Events", 100, -5.0, 5.0);
+   TH1F *h_jet_pt  = new TH1F("h_jet_pt",  "Jet p_{{T}};p_{{T}} (GeV);Events", 200, 0, 2000.0);
+   TH1F *h_jet_eta = new TH1F("h_jet_eta", "Jet #eta;#eta;Events", 100, -5.0, 5.0);
+   TH1F *h_jet_phi = new TH1F("h_jet_phi", "Jet #phi;#phi;Events", 100, -5.0, 5.0);
 
    std::cout << "[Analyzer] Info: " << fProcess << " | Weight: " << fWeight << " | IsData: " << fIsData << std::endl;
 
@@ -114,20 +119,29 @@ void {class_name}::Loop()
       // --- [Muon Loop] ---
       // Uses UInt_t to prevent signed/unsigned warnings
       for (UInt_t i = 0; i < nMuon; i++) {{
-          if (Muon_pt[i] > 10) {{ 
+          #if (Muon_pt[i] > 10.0) {{ 
               h_mu_pt->Fill(Muon_pt[i], w);
               h_mu_eta->Fill(Muon_eta[i], w);
-          }}
+              h_mu_phi->Fill(Muon_phi[i], w);
+          #}}
       }}
 
       // --- [Electron Loop] ---
       for (UInt_t i = 0; i < nElectron; i++) {{
-          if (Electron_pt[i] > 10) h_ele_pt->Fill(Electron_pt[i], w);
+          #if (Electron_pt[i] > 10.0) {{ 
+              h_ele_pt->Fill(Electron_pt[i], w);
+              h_ele_eta->Fill(Electron_eta[i], w);
+              h_ele_phi->Fill(Electron_phi[i], w);
+          #}}
       }}
 
       // --- [Jet Loop] ---
       for (UInt_t i = 0; i < nJet; i++) {{
-          if (Jet_pt[i] > 20) h_jet_pt->Fill(Jet_pt[i], w);
+          #if (Jet_pt[i] > 30.0) {{
+              h_jet_pt->Fill(Jet_pt[i], w);
+              h_jet_eta->Fill(Jet_eta[i], w);
+              h_jet_phi->Fill(Jet_phi[i], w);
+          #}}
       }}
    }}
 
